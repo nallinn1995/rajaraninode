@@ -22,24 +22,26 @@ io.on("connection", (socket) => {
   function broadcastPlayerList() {
     io.emit("playerList", connectedPlayers);
   }
-  socket.on("createroom", (nickname) => {
-    console.log(nickname);
+  socket.on("createroom", (playerObj) => {
     const roomId = uuidv4();
     socket.join(roomId);
     socket.emit("roomCreated", roomId);
   });
 
-  socket.on("joinroom", ({ playerName, roomId }) => {
+  socket.on("joinroom", ({ playerName, roomId, avatar, host }) => {
     socket.join(roomId);
     rooms[roomId] = rooms[roomId] || { players: [] };
-    rooms[roomId].players.push({ id: socket.id, name: playerName });
+    rooms[roomId].players.push({ roomId: roomId, name: playerName,avatar:avatar,host:host });
+    rooms[roomId]['avatar'] = avatar; 
+    rooms[roomId]['host'] = host; 
     socket.to(roomId).emit("playerJoined", playerName);
     socket.emit("roomid", roomId);
     // Emitting player list to the current player
     // Emitting unique player list to the current player
     const uniquePlayerNames = new Set(
-      rooms[roomId].players.map((player) => player.name)
+      rooms[roomId].players.map((player) => player)
     );
+    console.log(uniquePlayerNames,"Players")
     io.to(roomId).emit(
       "playersList",
       Array.from(uniquePlayerNames)
