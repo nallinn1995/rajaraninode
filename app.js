@@ -9,16 +9,8 @@ const rooms = {};
 
 io.on("connection", (socket) => {
   console.log("User connected");
-  // socket.emit("message","I just connected");
-  // socket.broadcast.emit("message","Hi this message is send to everyone except sender");
-  // io.emit("This is send to everyone");
-  // socket.join("Here is a unique ID for the room");
-  // socket.to("UNIQUE ID").emit("message","This message will send to everyone in the room except the sender");
-  // io.to("UNIQUE ID").emit("This message will ne send to everyone in the room ");
-  // Array to store connected players
+ 
   let connectedPlayers = [];
-
-  // Function to broadcast updated player list to all clients
   function broadcastPlayerList() {
     io.emit("playerList", connectedPlayers);
   }
@@ -28,25 +20,71 @@ io.on("connection", (socket) => {
     socket.emit("roomCreated", roomId);
   });
 
+  socket.on('getPlayers', (roomId) => {
+    console.log(`Received request for players in room: ${roomId}`);
+
+    // Check if the room exists in the rooms object
+    if (rooms[roomId] && rooms[roomId].players) {
+        // Retrieve the list of players in the room
+        const playersInRoom = rooms[roomId].players;
+
+        // Emit the list of players back to the client who requested it
+        socket.emit('playerList', playersInRoom);
+
+        console.log(`Sent player list to client ${socket.id}:`, playersInRoom);
+    } else {
+        console.log(`Room ${roomId} does not exist or has no players`);
+        socket.emit('playerList', []);
+    }
+});
+
+socket.on("playUpdate",(playerObj) => {
+    console.log(playerObj)
+    for(let data of rooms[playerObj.roomId].players){
+        if(playerObj.playerName == data.name){
+            data["play"] = true
+        }
+    }
+})
+
+
+
   socket.on("joinroom", ({ playerName, roomId, avatar, host }) => {
+    // Make sure the socket joins the room
     socket.join(roomId);
+
+    // Create the room if it doesn't exist
     rooms[roomId] = rooms[roomId] || { players: [] };
-    rooms[roomId].players.push({ roomId: roomId, name: playerName,avatar:avatar,host:host });
-    rooms[roomId]['avatar'] = avatar; 
-    rooms[roomId]['host'] = host; 
-    socket.to(roomId).emit("playerJoined", playerName);
-    socket.emit("roomid", roomId);
-    // Emitting player list to the current player
-    // Emitting unique player list to the current player
-    const uniquePlayerNames = new Set(
-      rooms[roomId].players.map((player) => player)
-    );
-    console.log(uniquePlayerNames,"Players")
-    io.to(roomId).emit(
-      "playersList",
-      Array.from(uniquePlayerNames)
-    );
-  });
+
+    // Check if the room already contains 4 players
+    if (rooms[roomId].players.length < 4) {
+        // Add the player to the room
+        rooms[roomId].players.push({ roomId: roomId, name: playerName, avatar: avatar, host: host });
+        
+        // Broadcast to the room that a player has joined
+        socket.to(roomId).emit("playerJoined", playerName);
+
+        // Send the room ID to the player who joined
+        socket.emit("roomid", roomId);
+        socket.emit("roomMem", "Waiting for players to join");
+        
+        // Notify all players in the room about the updated list of players
+        const uniquePlayerNames = new Set(
+            rooms[roomId].players.map((player) => player)
+        );
+        io.to(roomId).emit(
+            "playersList",
+            Array.from(uniquePlayerNames)
+        );
+    } else {
+        console.log("vvvvvvvvvvvvvvvvvv")
+        // If the room already contains 4 players, notify the player that the room is full
+        socket.emit("roomFull", true);
+    }
+});
+
+
+
 });
 
 httpServer.listen(3500, () => {
