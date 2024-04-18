@@ -85,11 +85,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("selectCard", (cardObj, playerId, roomid) => {
+    console.log(rooms[roomid].players);
     for (let data of rooms[roomid].players) {
       if (data.playerId == playerId) {
         data["selected"] = true;
         data["role"] = cardObj?.role;
-      }
+      } 
     }
     console.log(rooms[roomid]);
     socket.emit("updatedPlayerListCard", rooms[roomid].players);
