@@ -6,6 +6,7 @@ const io = require("socket.io")(httpServer, {
   origins: ["*"],
 });
 const rooms = {};
+const users = {};
 
 io.on("connection", (socket) => {
   
@@ -49,6 +50,7 @@ io.on("connection", (socket) => {
 
   socket.on("joinroom", ({ playerName, roomId, avatar, host, playerId }) => {
     // Make sure the socket joins the room
+    users[playerId] = socket.id;
     socket.join(roomId);
 
     // Create the room if it doesn't exist
@@ -86,14 +88,34 @@ io.on("connection", (socket) => {
 
   socket.on("selectCard", (cardObj, playerId, roomid) => {
     console.log(rooms[roomid].players);
-    for (let data of rooms[roomid].players) {
-      if (data.playerId == playerId) {
-        data["selected"] = true;
-        data["role"] = cardObj?.role;
-      } 
+    let assignedRole = rooms[roomid].players.filter(p => p.hasOwnProperty('role') && p.role === cardObj.role);
+    console.log(assignedRole);
+    const recipientSocketId = users[playerId];
+    console.log(recipientSocketId,"fdfdfd");
+    if(assignedRole.length > 0){
+      if (recipientSocketId) {
+          // Emit the private message event to the recipient's socket only
+          console.log("This role is already taken!!!!");
+          socket.emit("isAssignedRole",true);
+          socket.emit("updatedPlayerListCard", rooms[roomid].players);
+          return;
+      } else {
+        // Handle case where user is not found
+        console.log('User not found');
     }
-    console.log(rooms[roomid]);
-    socket.emit("updatedPlayerListCard", rooms[roomid].players);
+    } else {
+      console.log("This role is not taken!!!!");
+      socket.emit("isAssignedRole",false);
+      for (let data of rooms[roomid].players) {
+        if (data.playerId == playerId) {
+          data["selected"] = true;
+          data["role"] = cardObj?.role;
+        } 
+      }
+      console.log(rooms[roomid]);
+      socket.emit("updatedPlayerListCard", rooms[roomid].players);
+    }
+    
   });
 
 
